@@ -1,0 +1,13 @@
+{
+  "_comment": "Replace __HOME__ with your actual home directory path (e.g. /home/youruser)",
+  "mcpServers": {
+    "parthenon-brain": {
+      "command": "uvx",
+      "args": [
+        "chroma-mcp",
+        "--client-type", "persistent",
+        "--data-dir", "__HOME__/.parthenon-brain/chroma_data"
+      ]
+    }
+  }
+}
