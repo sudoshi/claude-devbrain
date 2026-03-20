@@ -1,19 +1,32 @@
-# Parthenon Brain
+# Claude DevBrain
 
-**A ChromaDB-powered persistent memory system for Claude Code**
+**Persistent memory for Claude Code — index your projects into ChromaDB for semantic retrieval via MCP.**
 
-Solves the core problem: Claude Code doesn't remember prior sessions, even when extensive documentation exists. Parthenon Brain indexes all your project documentation into ChromaDB and exposes it via MCP, so every Claude Code session starts with full project context.
+Every Claude Code session starts with a blank slate. DevBrain fixes this by indexing your documentation and source code into ChromaDB, then exposing it via MCP so Claude can search your project's full context before writing a single line of code.
 
 ---
 
-## Architecture
+## Quick Start
+
+```bash
+git clone https://github.com/sudoshi/claude-devbrain.git
+cd claude-devbrain
+pip install chromadb sentence-transformers
+python installer.py
+```
+
+The installer walks you through everything: prerequisites, adding projects, MCP registration, and initial ingestion.
+
+---
+
+## How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Claude Code Session                                     │
 │                                                          │
 │   CLAUDE.md says:                                        │
-│   "Query parthenon-brain before starting any task"       │
+│   "Query devbrain before starting any task"              │
 │                     │                                    │
 │                     ▼                                    │
 │   ┌─────────────────────────┐                           │
@@ -26,245 +39,178 @@ Solves the core problem: Claude Code doesn't remember prior sessions, even when 
                  ▼
    ┌─────────────────────────────┐
    │  ChromaDB (Persistent)      │
-   │  ~/.parthenon-brain/        │
+   │  ~/.claude-devbrain/        │
    │    chroma_data/             │
    │                             │
-   │  Collections:               │
-   │   • parthenon_docs          │
-   │     (MD, MDX, specs, blogs) │
-   │   • parthenon_code          │
-   │     (Python, TS, SQL)       │
+   │  Collections per project:   │
+   │   • myproject_docs          │
+   │   • myproject_code          │
    └──────────────▲──────────────┘
                   │
                   │ Ingestion Pipeline
                   │
-   ┌──────────────┴──────────────┐
-   │  ingest.py                  │
-   │  • Header-aware chunking    │
-   │  • MDX/frontmatter parsing  │
-   │  • Metadata classification  │
-   │  • Incremental (hash-based) │
-   │  • Git hook auto-trigger    │
+   ┌──────────────┴──────────────┐     ┌──────────────────┐
+   │  ingest.py                  │     │  installer.py     │
+   │  • Header-aware doc chunks  │◄────│  • Rich TUI       │
+   │  • AST-based Python chunks  │     │  • Multi-project  │
+   │  • Structural TS/PHP/SQL    │     │  • MCP setup      │
+   │  • Incremental (hash-based) │     │  • Git hooks      │
+   │  • Stale document cleanup   │     └──────────────────┘
    └─────────────────────────────┘
 ```
 
-## Quick Start
+## Features
 
-### 1. Install
+### Intelligent Ingestion
+
+- **Documentation**: Header-aware chunking that preserves section hierarchy (e.g., `Architecture > Database > Schema`)
+- **Python**: AST-based chunking — extracts individual functions and classes with their docstrings
+- **TypeScript/PHP/SQL**: Structural regex chunking at function/class boundaries
+- **Incremental updates**: SHA-256 hash manifest skips unchanged files
+- **Stale cleanup**: Automatically removes chunks from deleted files
+- **Content-based IDs**: Chunk IDs are stable across reordering (no orphaned documents)
+
+### Interactive Installer
+
+- Rich TUI with prerequisites checking
+- Multi-project support — index as many codebases as you want
+- Per-project collection names (no collisions)
+- MCP server auto-registration with Claude Code
+- Git post-commit hooks for automatic re-ingestion
+- CLAUDE.md snippet generation
+- Re-runnable: add/remove projects anytime
+
+### MCP Integration
+
+The official `chroma-mcp` server exposes ChromaDB collections as MCP tools. Claude Code can:
+
+- **Search semantically**: "Find documentation about federated study execution"
+- **Filter by metadata**: `doc_type`, `module`, `extension`, `symbol`, `kind`
+- **Search code**: Find functions, classes, and API patterns by description
+- **List collections**: See all indexed projects
+
+---
+
+## Usage
+
+### Installer (Recommended)
 
 ```bash
-# Clone or copy parthenon-brain into your project tooling
-cd parthenon-brain
-chmod +x setup.sh
+# First run — full setup wizard
+python installer.py
 
-# Run setup (optionally pass your project root for immediate ingestion)
-./setup.sh /path/to/parthenon
+# Re-run — manage projects, add new ones, re-ingest
+python installer.py
 ```
 
-### 2. Ingest Your Documentation
+### Direct CLI
 
 ```bash
-# Full ingestion (first time)
-python3 ~/.parthenon-brain/ingest.py \
-    --source /path/to/parthenon \
-    --chroma-dir ~/.parthenon-brain/chroma_data \
-    --include-code
+# Ingest documentation
+python scripts/ingest.py --source /path/to/project --chroma-dir ~/.claude-devbrain/chroma_data
 
-# Incremental (subsequent runs — only processes changed files)
-python3 ~/.parthenon-brain/ingest.py \
-    --source /path/to/parthenon \
-    --chroma-dir ~/.parthenon-brain/chroma_data \
-    --incremental
+# Ingest documentation + code
+python scripts/ingest.py --source /path/to/project --chroma-dir ~/.claude-devbrain/chroma_data --include-code
+
+# Incremental (fast — only changed files)
+python scripts/ingest.py --source /path/to/project --chroma-dir ~/.claude-devbrain/chroma_data --incremental
+
+# Custom collection name
+python scripts/ingest.py --source /path/to/project --collection myproject_docs --code-collection myproject_code --include-code
+
+# Query
+python scripts/query.py "How does auth work?"
+python scripts/query.py "FastAPI endpoint" --collection myproject_code --n 10
+python scripts/query.py --stats
+python scripts/query.py --collections
 ```
 
-### 3. Verify It Works
+### MCP Registration
 
 ```bash
-# Test a query
-python3 ~/.parthenon-brain/query.py "Commons real-time collaboration architecture"
-
-# Check collection stats
-python3 -c "
-import chromadb
-client = chromadb.PersistentClient(path='$HOME/.parthenon-brain/chroma_data')
-for c in client.list_collections():
-    print(f'{c.name}: {c.count()} documents')
-"
-```
-
-### 4. Add CLAUDE.md Snippet
-
-Copy the content from `config/CLAUDE-BRAIN-SNIPPET.md` into your project's
-`CLAUDE.md` or `.claude/CLAUDE.md`. This tells Claude Code to query the brain
-at the start of every session.
-
-### 5. Configure Claude Code MCP
-
-The setup script attempts auto-configuration. If manual setup is needed:
-
-```bash
-# Option A: Claude Code CLI (recommended)
-claude mcp add parthenon-brain --scope user \
+# Auto (via Claude Code CLI)
+claude mcp add claude-devbrain --scope user \
     -- uvx chroma-mcp \
     --client-type persistent \
-    --data-dir ~/.parthenon-brain/chroma_data
+    --data-dir ~/.claude-devbrain/chroma_data
 
-# Option B: Edit ~/.claude.json directly
-```
-
-Add to your `~/.claude.json` or project `.mcp.json`:
-
-```json
+# Manual (add to ~/.claude.json)
 {
   "mcpServers": {
-    "parthenon-brain": {
+    "claude-devbrain": {
       "command": "uvx",
-      "args": [
-        "chroma-mcp",
-        "--client-type", "persistent",
-        "--data-dir", "/home/YOUR_USER/.parthenon-brain/chroma_data"
-      ]
+      "args": ["chroma-mcp", "--client-type", "persistent",
+               "--data-dir", "/home/YOU/.claude-devbrain/chroma_data"]
     }
   }
 }
 ```
 
-### 6. (Optional) Auto-Ingest on Git Commits
+---
+
+## Auto-Ingestion
+
+### Git Post-Commit Hook
+
+The installer can set up a post-commit hook that runs incremental ingestion in the background whenever documentation files change. This keeps your brain fresh with zero effort.
+
+### Manual Re-Ingestion
 
 ```bash
-cp config/post-commit-hook.sh /path/to/parthenon/.git/hooks/post-commit
-chmod +x /path/to/parthenon/.git/hooks/post-commit
+# Re-run installer
+python installer.py
+# Choose option 4 (ingest one project) or 5 (ingest all)
 ```
 
-This runs incremental ingestion in the background after every commit that
-touches documentation files.
-
 ---
 
-## How It Works
+## Collections & Metadata
 
-### Ingestion Pipeline (`ingest.py`)
-
-The ingestion script processes your project documentation intelligently:
-
-1. **Discovery**: Scans for `.md`, `.mdx`, `.txt`, `.rst` files, skipping
-   `node_modules`, `.git`, `build`, etc.
-
-2. **Frontmatter Extraction**: Parses YAML frontmatter for metadata like
-   title, date, tags, and slug.
-
-3. **MDX Handling**: Strips JSX components and import statements while
-   preserving content text.
-
-4. **Header-Aware Chunking**: Splits at markdown headers, maintaining
-   section hierarchy context (e.g., "Architecture > Database > Schema").
-   Chunks target ~800 tokens with overlap for continuity.
-
-5. **Metadata Classification**: Each chunk gets tagged with:
-   - `doc_type`: documentation, devblog, devlog, specification, etc.
-   - `module`: commons, studies, gis, imaging, abby, etc.
-   - `relative_path`, `section`, `filename`, `extension`
-   - Frontmatter fields (title, date, tags)
-
-6. **Incremental Updates**: SHA-256 hash manifest tracks which files have
-   changed since the last ingestion. Unchanged files are skipped entirely.
-
-7. **Upsert**: ChromaDB's upsert operation ensures idempotent ingestion.
-   Re-running is always safe.
-
-### MCP Integration
-
-The official `chroma-mcp` server (from Chroma themselves) exposes ChromaDB
-collections as MCP tools. Claude Code can then:
-
-- **Search semantically**: "Find documentation about federated study execution"
-- **Filter by metadata**: Only search specs, only search the GIS module, etc.
-- **List collections**: See what knowledge bases are available
-- **Get collection info**: Check document counts and metadata
-
-### CLAUDE.md Instructions
-
-The CLAUDE.md snippet creates a behavioral contract: Claude Code will query
-the brain before starting work, similar to how a developer would check the
-wiki before making changes. This eliminates the "blank slate" problem that
-wastes the first 10 minutes of every session re-discovering project context.
-
----
-
-## Collections
+Each project gets two collections:
 
 | Collection | Contents | Best For |
 |---|---|---|
-| `parthenon_docs` | Markdown, MDX, specs, devlogs, blogs | Architecture questions, design decisions, module specs |
-| `parthenon_code` | Python, TypeScript, SQL source files | Implementation patterns, API contracts, schema details |
+| `{project}_docs` | Markdown, MDX, specs, devlogs | Architecture, design decisions, module specs |
+| `{project}_code` | Python, TypeScript, PHP, SQL | Implementation patterns, API contracts, schemas |
 
----
+### Metadata Fields
 
-## Advanced Usage
-
-### Custom Collections
-
-You can create separate collections for different knowledge domains:
-
-```bash
-# Ingest only OHDSI/OMOP documentation
-python3 ~/.parthenon-brain/ingest.py \
-    --source /path/to/ohdsi-docs \
-    --collection ohdsi_reference
-
-# Ingest Abby training corpus
-python3 ~/.parthenon-brain/ingest.py \
-    --source /path/to/abby-corpus \
-    --collection abby_training_corpus
-```
-
-### Filtered Queries
-
-```bash
-# Only search specifications
-python3 ~/.parthenon-brain/query.py "federated architecture" --type specification
-
-# Only search the Commons module
-python3 ~/.parthenon-brain/query.py "WebSocket presence" --module commons
-
-# Search code specifically
-python3 ~/.parthenon-brain/query.py "FastAPI router" --collection parthenon_code
-```
-
-### Backup & Restore
-
-```bash
-# Backup
-cp -r ~/.parthenon-brain/chroma_data ~/.parthenon-brain/backups/$(date +%Y%m%d)
-
-# Restore
-cp -r ~/.parthenon-brain/backups/20260319 ~/.parthenon-brain/chroma_data
-```
-
-### Re-Index from Scratch
-
-```bash
-# Delete and re-create
-rm -rf ~/.parthenon-brain/chroma_data
-python3 ~/.parthenon-brain/ingest.py \
-    --source /path/to/parthenon \
-    --chroma-dir ~/.parthenon-brain/chroma_data \
-    --include-code
-```
+| Field | Values | Filterable |
+|---|---|---|
+| `doc_type` | documentation, devblog, specification, architecture, source_code, ... | Yes |
+| `module` | Auto-detected from directory structure | Yes |
+| `section` | Header hierarchy or function name | Yes |
+| `symbol` | Function/class name (code only) | Yes |
+| `kind` | function, class, module, block (code only) | Yes |
+| `extension` | .md, .py, .ts, .php, .sql, ... | Yes |
 
 ---
 
 ## File Structure
 
 ```
-~/.parthenon-brain/
+claude-devbrain/
+├── installer.py           # Interactive TUI installer & project manager
+├── scripts/
+│   ├── ingest.py          # Ingestion pipeline (docs + AST-aware code)
+│   ├── query.py           # CLI query tool + stats
+│   └── test_ingest.py     # 39 unit tests
+├── config/
+│   ├── CLAUDE-BRAIN-SNIPPET.md   # CLAUDE.md template
+│   ├── post-commit-hook.sh       # Git hook template
+│   └── mcp.json.template         # MCP config template
+├── requirements.txt
+├── setup.sh               # Legacy bash setup (use installer.py instead)
+└── README.md
+
+~/.claude-devbrain/        # Created by installer
+├── config.json            # Project configuration
 ├── chroma_data/           # ChromaDB persistent storage
-│   └── .parthenon_docs_manifest.json  # Hash manifest for incremental
-├── ingest.py              # Ingestion pipeline
-├── query.py               # CLI query tool
+├── ingest.py              # Deployed ingestion script
+├── query.py               # Deployed query tool
 ├── logs/
-│   └── ingestion.log      # Auto-ingestion logs
-└── backups/               # Manual backups
+│   └── ingestion.log
+└── backups/
 ```
 
 ---
@@ -273,24 +219,24 @@ python3 ~/.parthenon-brain/ingest.py \
 
 - Python 3.10+
 - `chromadb` (pip install chromadb)
-- `uvx` recommended (for MCP server: `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
+- `sentence-transformers` (for embeddings)
+- `uvx` recommended (for MCP server)
+- Claude Code CLI (for MCP auto-registration)
 
 ---
 
 ## Troubleshooting
 
-**"Collection not found"**: Run the ingestion pipeline first.
+**"Collection not found"**: Run ingestion first, or check collection names with `python scripts/query.py --collections`.
 
-**MCP server not appearing**: Check `claude mcp list` and verify the server
-is registered. Restart Claude Code after adding MCP configuration.
+**MCP server not appearing**: Run `claude mcp list` and verify registration. Restart Claude Code after adding MCP config.
 
-**Slow ingestion**: Use `--incremental` flag for subsequent runs. First
-ingestion of a large project may take a few minutes.
+**Slow first ingestion**: Normal for large projects. Subsequent runs with `--incremental` are fast (seconds, not minutes).
 
-**Embedding errors**: The default ChromaDB embedding function uses
-`all-MiniLM-L6-v2` from sentence-transformers. If you get import errors,
-install it: `pip install sentence-transformers`.
+**Embedding errors**: Install sentence-transformers: `pip install sentence-transformers`.
 
-**Token limit warnings**: The `chroma-mcp` server may warn about large
-outputs. Set `MAX_MCP_OUTPUT_TOKENS=50000` in your environment if needed.
+---
+
+## License
+
+MIT

@@ -21,7 +21,7 @@ import chromadb
 from chromadb.config import Settings
 
 
-DEFAULT_CHROMA_DIR = Path.home() / '.parthenon-brain' / 'chroma_data'
+DEFAULT_CHROMA_DIR = Path.home() / '.claude-devbrain' / 'chroma_data'
 
 
 def get_client(chroma_dir: Path) -> chromadb.PersistentClient:

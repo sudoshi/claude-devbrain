@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Parthenon Brain v2 — Documentation & Code Ingestion Pipeline
+Claude DevBrain — Documentation & Code Ingestion Pipeline
 ==============================================================
 Processes Parthenon project documentation and source code into ChromaDB
 collections for semantic retrieval via MCP.
@@ -627,7 +627,7 @@ def run_ingestion(
     """Main documentation ingestion pipeline."""
     log.info("")
     log.info("=" * 60)
-    log.info("  Parthenon Brain v2 — Documentation Ingestion")
+    log.info("  Claude DevBrain — Documentation Ingestion")
     log.info("=" * 60)
     log.info("  Source:      %s", source_root)
     log.info("  ChromaDB:    %s", chroma_dir)
@@ -716,7 +716,7 @@ def run_code_ingestion(
     """Code ingestion pipeline with AST-aware chunking."""
     log.info("")
     log.info("=" * 60)
-    log.info("  Parthenon Brain v2 — Code Ingestion")
+    log.info("  Claude DevBrain — Code Ingestion")
     log.info("=" * 60)
     log.info("  Collection:  %s", collection_name)
     log.info("  Mode:        %s", 'incremental' if incremental else 'full')
@@ -796,20 +796,24 @@ def run_code_ingestion(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Parthenon Brain v2 — Ingest documentation and code into ChromaDB"
+        description="Claude DevBrain — Ingest documentation and code into ChromaDB"
     )
     parser.add_argument(
         '--source', '-s', type=Path, required=True,
-        help='Root directory of the Parthenon project',
+        help='Root directory of the project to ingest',
     )
     parser.add_argument(
         '--chroma-dir', '-d', type=Path,
-        default=Path.home() / '.parthenon-brain' / 'chroma_data',
+        default=Path.home() / '.claude-devbrain' / 'chroma_data',
         help='Directory for ChromaDB persistent storage',
     )
     parser.add_argument(
         '--collection', '-c', default=DEFAULT_COLLECTION,
         help=f'Documentation collection name (default: {DEFAULT_COLLECTION})',
+    )
+    parser.add_argument(
+        '--code-collection', default=None,
+        help=f'Code collection name (default: {CODE_COLLECTION})',
     )
     parser.add_argument(
         '--incremental', '-i', action='store_true',
@@ -818,6 +822,10 @@ def main():
     parser.add_argument(
         '--include-code', action='store_true',
         help='Also ingest source code with AST-aware chunking',
+    )
+    parser.add_argument(
+        '--code-only', action='store_true',
+        help='Only run code ingestion (skip documentation)',
     )
     parser.add_argument(
         '--no-cleanup', action='store_true',
@@ -836,25 +844,30 @@ def main():
 
     args.chroma_dir.mkdir(parents=True, exist_ok=True)
 
-    log_dir = Path.home() / '.parthenon-brain' / 'logs'
+    # Resolve log directory from brain dir (parent of chroma_data)
+    brain_dir = args.chroma_dir.parent
+    log_dir = brain_dir / 'logs'
     setup_logging(log_dir=log_dir, verbose=args.verbose)
 
     cleanup = not args.no_cleanup
 
-    # Documentation ingestion
-    run_ingestion(
-        source_root=args.source,
-        chroma_dir=args.chroma_dir,
-        collection_name=args.collection,
-        incremental=args.incremental,
-        cleanup=cleanup,
-    )
+    # Documentation ingestion (skip if --code-only)
+    if not args.code_only:
+        run_ingestion(
+            source_root=args.source,
+            chroma_dir=args.chroma_dir,
+            collection_name=args.collection,
+            incremental=args.incremental,
+            cleanup=cleanup,
+        )
 
     # Code ingestion
-    if args.include_code:
+    if args.include_code or args.code_only:
+        code_col = args.code_collection or CODE_COLLECTION
         run_code_ingestion(
             source_root=args.source,
             chroma_dir=args.chroma_dir,
+            collection_name=code_col,
             incremental=args.incremental,
             cleanup=cleanup,
         )
