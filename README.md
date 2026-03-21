@@ -6,6 +6,37 @@ Every Claude Code session starts with a blank slate. DevBrain fixes this by inde
 
 ---
 
+## Benchmark Results
+
+Tested on a real-world project (Parthenon — 5,700 docs, 24,500 code files) with 10 verifiable questions spanning tech stack, architecture, modules, and domain knowledge:
+
+| Metric | Without DevBrain | With DevBrain |
+|---|---|---|
+| **Average Accuracy** | 21% | **97%** |
+| **Perfect Answers** | 0/10 | **9/10** |
+| **Response Time** | ~41s avg | ~39s avg |
+
+### Per-Question Breakdown
+
+| # | Category | Question | Without | With | Delta |
+|---|---|---|---|---|---|
+| q1 | Tech Stack | What web framework and version? | 50% | **100%** | +50% |
+| q2 | Architecture | Database organization? | 25% | **100%** | +75% |
+| q3 | Module | Commons real-time technology? | 0% | **67%** | +67% |
+| q4 | Module | AI assistant and LLM? | 0% | **100%** | +100% |
+| q5 | Domain | OMOP CDM version? | 67% | **100%** | +33% |
+| q6 | Tech Stack | Frontend framework and state mgmt? | 0% | **100%** | +100% |
+| q7 | Architecture | Search engine and configsets? | 0% | **100%** | +100% |
+| q8 | Module | Study-agent purpose? | 67% | **100%** | +33% |
+| q9 | Tech Stack | Python AI framework and vector DB? | 0% | **100%** | +100% |
+| q10 | Domain | R packages for health studies? | 0% | **100%** | +100% |
+
+Without DevBrain, Claude couldn't answer project-specific questions — it either hallucinated or asked for tools it didn't have. With DevBrain, it queried ChromaDB and gave specific, accurate answers citing actual documentation.
+
+Run the benchmark yourself: `python benchmark.py --brain-dir ~/.claude-devbrain`
+
+---
+
 ## Quick Start
 
 ```bash
