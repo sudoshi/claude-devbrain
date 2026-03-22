@@ -217,6 +217,47 @@ Each project gets two collections:
 
 ---
 
+## Visualizer
+
+A standalone web app for inspecting Claude's brain — 3D semantic maps, semantic search, facet distribution, and quality analysis across all your projects.
+
+```bash
+./visualizer/start.sh
+# Frontend: http://localhost:5190
+# Backend:  http://localhost:8100
+# API Docs: http://localhost:8100/docs
+```
+
+### Features
+
+- **Project selector** — auto-detects all indexed projects from collection naming (`{project}_docs`, `{project}_code`)
+- **3D Semantic Map** — PCA→UMAP projection rendered with Three.js, with cluster coloring, metadata-based coloring, and fullscreen expand
+- **Semantic Search** — query any collection with distance scoring, query history, and configurable K
+- **Collection Studio** — vector counts, dimension info, facet distribution, sample records
+- **Quality Analysis** — outlier detection (Isolation Forest), duplicate detection (cosine > 0.98), orphan detection, CSV export
+- **Multi-directory discovery** — auto-scans `~/.*` for `chroma_data/` directories, merging collections from separate ChromaDB instances
+
+### Architecture
+
+```
+Vite + React 18 + Tailwind + Three.js  →  FastAPI  →  ChromaDB (persistent)
+         :5190                              :8100       ~/.*/chroma_data/
+```
+
+No Laravel proxy needed — the Python backend connects directly to ChromaDB.
+
+### Prerequisites
+
+```bash
+# Backend (auto-installed by start.sh)
+pip install fastapi uvicorn chromadb numpy scikit-learn umap-learn
+
+# Frontend (auto-installed by start.sh)
+npm install  # in visualizer/frontend/
+```
+
+---
+
 ## File Structure
 
 ```
@@ -230,6 +271,20 @@ claude-devbrain/
 │   ├── CLAUDE-BRAIN-SNIPPET.md   # CLAUDE.md template
 │   ├── post-commit-hook.sh       # Git hook template
 │   └── mcp.json.template         # MCP config template
+├── visualizer/
+│   ├── start.sh           # One-command launcher (backend + frontend)
+│   ├── backend/
+│   │   ├── main.py        # FastAPI app (projects, collections, query, projection)
+│   │   ├── projection.py  # PCA→UMAP pipeline with clustering & quality detection
+│   │   └── requirements.txt
+│   └── frontend/
+│       ├── src/
+│       │   ├── App.tsx                  # Main app with project selector
+│       │   ├── api/client.ts            # API client + types
+│       │   └── components/
+│       │       └── vector-explorer/     # 3D scene, controls, inspector (10 files)
+│       ├── package.json
+│       └── vite.config.ts
 ├── requirements.txt
 ├── setup.sh               # Legacy bash setup (use installer.py instead)
 └── README.md
