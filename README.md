@@ -1,5 +1,7 @@
 # Claude DevBrain
 
+<img width="5120" height="2674" alt="image" src="https://github.com/user-attachments/assets/31822b07-362c-4281-b8c2-27dda14321d7" />
+
 **Persistent memory for Claude Code — index your projects into ChromaDB for semantic retrieval via MCP.**
 
 Every Claude Code session starts with a blank slate. DevBrain fixes this by indexing your documentation and source code into ChromaDB, then exposing it via MCP so Claude can search your project's full context before writing a single line of code.
